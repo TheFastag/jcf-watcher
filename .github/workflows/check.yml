@@ -1,0 +1,61 @@
+name: Check JCF Focalizacion
+
+on:
+  schedule:
+    # Corre cada 6 horas (a las 00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Permite ejecución manual desde GitHub Actions UI
+
+permissions:
+  contents: write # Necesario para poder hacer push de status.txt de vuelta al repo
+
+jobs:
+  check-status:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install Playwright Chromium
+      run: |
+        playwright install chromium --with-deps
+
+    - name: Run watcher script
+      env:
+        NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        STATE_ID: "23" # Quintana Roo
+        MUNICIPALITY_NAME: "Solidaridad"
+        HEADLESS: "true"
+      run: |
+        python check_focalizacion.py
+
+    - name: Commit and push status change
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        
+        # Agrega status.txt sólo si existe y ha cambiado
+        if [ -f status.txt ]; then
+          git add status.txt
+          # Revisa si hay cambios en el stage
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update JCF status.txt [skip ci]"
+            git push
+          else
+            echo "Sin cambios en status.txt. Nada que subir."
+          fi
+        else
+          echo "status.txt no fue creado. Saltando commit."
+        fi
