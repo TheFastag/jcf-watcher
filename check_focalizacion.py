@@ -192,30 +192,28 @@ def run():
         print(f"Estatus Anterior: '{old_status}'")
         print(f"Estatus Actual: '{found_status}'")
 
-        if found_status != old_status:
-            print("¡Cambio de estatus detectado!")
-            
-            # Formatear el mensaje de notificación
-            if old_status == "Desconocido":
-                msg = f"Sistema inicializado. Estatus actual de {MUNICIPALITY_NAME}: {found_status}"
-            else:
-                msg = f"¡Alerta JCF! El municipio {MUNICIPALITY_NAME} cambió de '{old_status}' a '{found_status}'."
+        # Siempre enviar notificación para mantenerte informado
+        print("Enviando reporte de estatus...")
+        
+        status_change_str = ""
+        if old_status != "Desconocido" and found_status != old_status:
+            status_change_str = f" (¡CAMBIÓ! Antes era '{old_status}')"
 
-            if NTFY_TOPIC:
-                title_notification = f"JCF: Cambio de Estatus en {MUNICIPALITY_NAME}"
-                send_notification(NTFY_TOPIC, title_notification, msg)
-            else:
-                print("Advertencia: No se envió notificación push porque NTFY_TOPIC no está definida.")
+        msg = f"Reporte JCF {MUNICIPALITY_NAME}: {found_status}{status_change_str}."
 
-            # Guardar el nuevo estatus en el archivo
-            try:
-                with open(STATUS_FILE, "w", encoding="utf-8") as f:
-                    f.write(found_status)
-                print(f"Nuevo estatus '{found_status}' guardado en '{STATUS_FILE}'.")
-            except Exception as e:
-                print(f"Error al escribir en el archivo de estatus: {e}")
+        if NTFY_TOPIC:
+            title_notification = f"Monitoreo JCF: {MUNICIPALITY_NAME}"
+            send_notification(NTFY_TOPIC, title_notification, msg)
         else:
-            print("El estatus no ha cambiado. No se requiere notificación.")
+            print("Advertencia: No se envió notificación push porque NTFY_TOPIC no está definida.")
+
+        # Guardar el estatus actual en el archivo
+        try:
+            with open(STATUS_FILE, "w", encoding="utf-8") as f:
+                f.write(found_status)
+            print(f"Estatus actual '{found_status}' guardado en '{STATUS_FILE}'.")
+        except Exception as e:
+            print(f"Error al escribir en el archivo de estatus: {e}")
 
         browser.close()
 
