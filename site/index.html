@@ -222,6 +222,10 @@
             <div id="success-msg" class="alert-box">
                 <strong>✓ ¡Listo!</strong> Estás suscrito y recibirás alertas cuando cambie la focalización de este municipio.
             </div>
+
+            <div id="error-msg" class="alert-box" style="background-color: rgba(239, 68, 68, 0.15); border-color: #ef4444; color: #fca5a5; display: none;">
+                <strong>⚠️ Error:</strong> No se pudo conectar con el servicio de notificaciones.
+            </div>
         </div>
 
         <div class="info-section">
@@ -288,6 +292,8 @@
             const estadoSelect = document.getElementById("estado");
             const municipioSelect = document.getElementById("municipio");
             const btn = document.getElementById("subscribe-btn");
+            const errorMsg = document.getElementById("error-msg");
+            const successMsg = document.getElementById("success-msg");
             
             if (!estadoSelect.value || !municipioSelect.value) {
                 alert("Por favor, selecciona un estado y un municipio.");
@@ -299,13 +305,30 @@
 
             btn.disabled = true;
             btn.innerText = "Configurando...";
+            errorMsg.style.display = "none";
+            successMsg.style.display = "none";
+
+            let resolved = false;
+
+            // Timeout de seguridad de 5.5 segundos
+            const timeoutId = setTimeout(() => {
+                if (!resolved) {
+                    btn.disabled = false;
+                    btn.innerText = "Activar Avisos Push";
+                    errorMsg.innerHTML = `<strong>⚠️ Conexión demorada:</strong> No se pudo conectar con el servicio de notificaciones en el tiempo límite. Si utilizas un bloqueador de anuncios (como Brave Shields, uBlock Origin, AdBlock), por favor desactívalo temporalmente para este sitio e inténtalo de nuevo.`;
+                    errorMsg.style.display = "block";
+                }
+            }, 5500);
 
             window.OneSignalDeferred.push(async function(OneSignal) {
                 try {
                     // Solicitar permiso de notificaciones al navegador
                     await OneSignal.Notifications.requestPermission();
                     
-                    // Verificar si se concedió el permiso
+                    // Si llegamos aquí, la llamada al SDK respondió (concedido o denegado)
+                    resolved = true;
+                    clearTimeout(timeoutId);
+                    
                     const hasPermission = OneSignal.Notifications.permission;
                     
                     if (hasPermission) {
@@ -321,14 +344,18 @@
                         
                         showSuccess(estadoName, municipioName);
                     } else {
+                        btn.disabled = false;
+                        btn.innerText = "Activar Avisos Push";
                         alert("Permiso denegado. Para recibir avisos debes permitir las notificaciones de esta página.");
                     }
                 } catch (err) {
-                    console.error("Error al registrar suscripción:", err);
-                    alert("Ocurrió un error al conectar con OneSignal. Revisa la consola.");
-                } finally {
+                    resolved = true;
+                    clearTimeout(timeoutId);
                     btn.disabled = false;
                     btn.innerText = "Activar Avisos Push";
+                    console.error("Error al registrar suscripción:", err);
+                    errorMsg.innerHTML = `<strong>⚠️ Error de conexión:</strong> Ocurrió un error al conectar con OneSignal. Revisa la consola o desactiva tu bloqueador de anuncios.`;
+                    errorMsg.style.display = "block";
                 }
             });
         }
