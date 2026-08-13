@@ -1,225 +1,331 @@
 import os
 import sys
+import json
 import time
 import requests
 from playwright.sync_api import sync_playwright
 
-# Configuración mediante variables de entorno o valores por defecto
-STATE_ID = os.environ.get("STATE_ID", "23")  # 23 es Quintana Roo
-MUNICIPALITY_NAME = os.environ.get("MUNICIPALITY_NAME", "Solidaridad")
-STATUS_FILE = os.environ.get("STATUS_FILE", "status.txt")
-NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
+# Listado oficial de estados según códigos de INEGI (01-32)
+ESTADOS = {
+    "01": "Aguascalientes",
+    "02": "Baja California",
+    "03": "Baja California Sur",
+    "04": "Campeche",
+    "05": "Coahuila",
+    "06": "Colima",
+    "07": "Chiapas",
+    "08": "Chihuahua",
+    "09": "Ciudad de México",
+    "10": "Durango",
+    "11": "Guanajuato",
+    "12": "Guerrero",
+    "13": "Hidalgo",
+    "14": "Jalisco",
+    "15": "Estado de México",
+    "16": "Michoacán",
+    "17": "Morelos",
+    "18": "Nayarit",
+    "19": "Nuevo León",
+    "20": "Oaxaca",
+    "21": "Puebla",
+    "22": "Querétaro",
+    "23": "Quintana Roo",
+    "24": "San Luis Potosí",
+    "25": "Sinaloa",
+    "26": "Sonora",
+    "27": "Tabasco",
+    "28": "Tamaulipas",
+    "29": "Tlaxcala",
+    "30": "Veracruz",
+    "31": "Yucatán",
+    "32": "Zacatecas"
+}
+
+URL = "https://jovenesconstruyendoelfuturo.stps.gob.mx/focalizacion/"
 HEADLESS = os.environ.get("HEADLESS", "true").lower() == "true"
 
-def send_notification(topic, title, message):
-    """Envía una notificación push gratuita usando ntfy.sh"""
+# Credenciales leídas EXCLUSIVAMENTE de variables de entorno (sin defaults reales)
+ONESIGNAL_APP_ID = os.environ.get("ONESIGNAL_APP_ID", "")
+ONESIGNAL_REST_API_KEY = os.environ.get("ONESIGNAL_REST_API_KEY", "")
+NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
+
+def load_health():
+    """Carga el contador de fallas consecutivas y el estado de notificación de salud"""
+    health_path = "data/salud_checker.json"
+    if os.path.exists(health_path):
+        try:
+            with open(health_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "consecutive_failures": 0,
+        "already_notified": False,
+        "last_failure_type": ""
+    }
+
+def save_health(health):
+    """Guarda el log de salud actual en disco"""
+    health_path = "data/salud_checker.json"
+    try:
+        os.makedirs("data", exist_ok=True)
+        with open(health_path, "w", encoding="utf-8") as f:
+            json.dump(health, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error al escribir salud_checker.json: {e}")
+
+def send_health_alert(topic, title, message):
+    """Envía alerta de salud personal silenciosa mediante ntfy.sh"""
+    if not topic:
+        print("Advertencia: NTFY_TOPIC no configurada. Alerta de salud omitida.")
+        return
     url = f"https://ntfy.sh/{topic}"
     headers = {
         "Title": title.encode("utf-8"),
-        "Priority": "5",
-        "Tags": "bell,loudspeaker,mexico"
+        "Priority": "4",  # Prioridad alta para alertar, pero no molesta innecesariamente
+        "Tags": "warning,skull"
     }
     try:
         response = requests.post(url, data=message.encode("utf-8"), headers=headers, timeout=10)
         if response.status_code == 200:
-            print("Notificación push enviada con éxito a ntfy.sh")
+            print("Alerta de salud enviada con éxito a ntfy.sh.")
         else:
             print(f"Error al enviar a ntfy.sh (Código {response.status_code}): {response.text}")
     except Exception as e:
-        print(f"Excepción al enviar notificación push: {e}")
+        print(f"Excepción al enviar alerta a ntfy.sh: {e}")
+
+def send_onesignal_push(app_id, api_key, state_name, mun_name, old_status, new_status):
+    """Envía una notificación web push usando OneSignal REST API con tags combinados (AND)"""
+    if not app_id or not api_key:
+        print("Error: Credenciales de OneSignal no configuradas. Saltando notificación.")
+        return False
+        
+    url = "https://onesignal.com/api/v1/notifications"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Basic {api_key}"
+    }
+    
+    # Estatus amigable para el usuario
+    estatus_es = "Abierto" if new_status == "abierto" else ("Meta Alcanzada" if new_status == "meta_alcanzada" else "Cerrado")
+    msg = f"El municipio {mun_name} en {state_name} ahora está en estatus: {estatus_es}."
+    
+    body = {
+        "app_id": app_id,
+        "contents": {
+            "es": msg
+        },
+        "headings": {
+            "es": "Cambio de focalización JCF 🇲🇽"
+        },
+        "filters": [
+            {"field": "tag", "key": "estado", "relation": "=", "value": state_name},
+            {"field": "tag", "key": "municipio", "relation": "=", "value": mun_name}
+        ]
+    }
+    
+    try:
+        response = requests.post(url, json=body, headers=headers, timeout=15)
+        if response.status_code == 200:
+            print(f"Push enviado con éxito para {mun_name}, {state_name}.")
+            return True
+        else:
+            print(f"Error OneSignal API (Código {response.status_code}): {response.text}")
+            return False
+    except Exception as e:
+        print(f"Excepción al llamar a OneSignal API: {e}")
+        return False
+
+def parse_municipios(container_text):
+    """Parsea el texto de la tabla y extrae nombres y estatus de los municipios"""
+    municipios = {}
+    lines = [line.strip() for line in container_text.split("\n") if line.strip()]
+    
+    for idx, line in enumerate(lines):
+        status_key = None
+        if "abierto" in line.lower():
+            status_key = "abierto"
+        elif "cerrado" in line.lower():
+            status_key = "cerrado"
+        elif "meta" in line.lower() or "alcanzada" in line.lower():
+            status_key = "meta_alcanzada"
+            
+        if status_key and idx > 0:
+            mun_name = lines[idx - 1]
+            if not any(k in mun_name.lower() for k in ["abierto", "cerrado", "meta", "alcanzada"]):
+                municipios[mun_name] = status_key
+                
+    return municipios
 
 def run():
-    print("=== Iniciando consulta de focalización JCF ===")
-    print(f"Estado ID: {STATE_ID}")
-    print(f"Municipio objetivo: {MUNICIPALITY_NAME}")
-    print(f"Modo Headless: {HEADLESS}")
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS)
-        context = browser.new_context(
-            viewport={"width": 1280, "height": 800},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        )
-        page = context.new_page()
-
-        url = "https://jovenesconstruyendoelfuturo.stps.gob.mx/focalizacion/"
-        print(f"Navegando a: {url}")
-        page.goto(url, wait_until="networkidle")
-
-        # Paso 1: Localizar y hacer clic en el botón del Estado
-        button_selector = f"button#edo_{STATE_ID}"
-        try:
-            print(f"Esperando el botón del estado con selector: {button_selector}")
-            page.wait_for_selector(button_selector, timeout=15000)
-            state_btn = page.locator(button_selector)
-            state_btn.scroll_into_view_if_needed()
-            state_btn.click()
-            print("Botón del estado clickeado exitosamente.")
-        except Exception as e:
-            print(f"[Fallback] No se pudo hacer clic con '{button_selector}': {e}")
-            print("Intentando localizar el botón del estado buscando 'QUINTANA ROO' en el texto de la página...")
-            
-            # Buscar elementos interactivos que tengan texto del estado
-            buttons = page.locator("button, a, div").all()
-            clicked_fallback = False
-            for btn in buttons:
-                try:
-                    text = btn.inner_text().strip().upper()
-                    if "QUINTANA ROO" in text and ("MUNICIPIO" in text or "VER" in text or btn.get_attribute("id") == f"edo_{STATE_ID}"):
-                        print(f"Encontrado botón alternativo con texto: '{text}'. Clickeando...")
-                        btn.scroll_into_view_if_needed()
-                        btn.click()
-                        clicked_fallback = True
-                        break
-                except Exception:
-                    continue
-            
-            if not clicked_fallback:
-                # Si falló, tomemos una captura si es posible para depurar
-                try:
-                    page.screenshot(path="debug_state_error.png")
-                    print("Captura de pantalla de depuración guardada como 'debug_state_error.png'")
-                except Exception:
-                    pass
-                raise Exception("No se pudo encontrar ni hacer clic en el botón del estado objetivo.")
-
-        # Paso 2: Buscar el input de búsqueda de municipios
-        input_selector = "input#myInput"
-        try:
-            print(f"Esperando el buscador de municipios con selector: {input_selector}")
-            page.wait_for_selector(input_selector, timeout=10000)
-            search_input = page.locator(input_selector)
-            search_input.fill(MUNICIPALITY_NAME)
-            print(f"Texto '{MUNICIPALITY_NAME}' ingresado en el buscador.")
-        except Exception as e:
-            print(f"[Fallback] No se pudo encontrar el buscador con '{input_selector}': {e}")
-            print("Buscando input alternativo con placeholder que contenga 'Municipio'...")
-            search_input = page.locator("input[placeholder*='Municipio']").first
-            if search_input.count() > 0:
-                search_input.fill(MUNICIPALITY_NAME)
-                print(f"Texto '{MUNICIPALITY_NAME}' ingresado en el buscador alternativo.")
-            else:
-                try:
-                    page.screenshot(path="debug_search_error.png")
-                    print("Captura de pantalla de depuración guardada como 'debug_search_error.png'")
-                except Exception:
-                    pass
-                raise Exception("No se pudo localizar el campo de búsqueda de municipios.")
-
-        # Esperar a que se aplique el filtro en la tabla
-        time.sleep(3)
-
-        # Paso 3: Extraer el estatus del municipio objetivo
-        container_selector = "div.barridoTabla"
-        try:
-            page.wait_for_selector(container_selector, timeout=10000)
-            container = page.locator(container_selector)
-            container_text = container.inner_text().strip()
-            print("\n--- Contenido de texto extraído del contenedor de municipios ---")
-            print(container_text)
-            print("----------------------------------------------------------------\n")
-        except Exception as e:
-            raise Exception(f"No se pudo encontrar el contenedor de municipios '{container_selector}': {e}")
-
-        # Buscar el estatus analizando las filas de la tabla
-        rows = page.locator(f"{container_selector} tr").all()
-        if not rows:
-            # Fallback a elementos de lista o divs
-            rows = page.locator(f"{container_selector} li").all()
-        if not rows:
-            rows = page.locator(f"{container_selector} div.row").all()
-
-        found_status = None
-        if rows:
-            print(f"Se encontraron {len(rows)} filas/elementos en el contenedor.")
-            for row in rows:
-                try:
-                    text = row.inner_text().strip()
-                    if MUNICIPALITY_NAME.lower() in text.lower():
-                        # Buscar palabras clave de estatus
-                        for status_candidate in ["Municipio Abierto", "Meta Alcanzada", "Municipio Cerrado"]:
-                            if status_candidate.lower() in text.lower():
-                                found_status = status_candidate
-                                print(f"-> Fila coincidente encontrada: '{text}' => Estatus: '{found_status}'")
-                                break
-                        if found_status:
-                            break
-                except Exception:
-                    continue
-
-        # Fallback de parseo de texto plano por líneas si fallaron las filas estructuradas
-        if not found_status:
-            print("[Fallback] Intentando buscar el estatus línea por línea en el bloque de texto...")
-            lines = [line.strip() for line in container_text.split("\n") if line.strip()]
-            for idx, line in enumerate(lines):
-                if MUNICIPALITY_NAME.lower() in line.lower():
-                    # Buscar en la misma línea o en las siguientes 2 líneas
-                    for offset in [0, 1, 2]:
-                        if idx + offset < len(lines):
-                            candidate_line = lines[idx + offset]
-                            for status_candidate in ["Municipio Abierto", "Meta Alcanzada", "Municipio Cerrado"]:
-                                if status_candidate.lower() in candidate_line.lower():
-                                    found_status = status_candidate
-                                    print(f"-> Estatus '{found_status}' encontrado mediante fallback de líneas (línea original: '{line}')")
-                                    break
-                        if found_status:
-                            break
-                if found_status:
-                    break
-
-        if not found_status:
-            # Depuración: imprimir el HTML completo si falló el parseo
-            html_debug = container.inner_html()
-            print("\n[ERROR] No se pudo encontrar el estatus. Mostrando HTML del contenedor para depuración:")
-            print(html_debug)
-            print("----------------------------------------------------------------\n")
-            try:
-                page.screenshot(path="debug_status_not_found.png")
-                print("Captura de pantalla de depuración guardada como 'debug_status_not_found.png'")
-            except Exception:
-                pass
-            raise Exception(f"No se pudo determinar el estatus para el municipio '{MUNICIPALITY_NAME}'.")
-
-        # Paso 4: Comparar y Guardar Estado
-        old_status = "Desconocido"
-        if os.path.exists(STATUS_FILE):
-            try:
-                with open(STATUS_FILE, "r", encoding="utf-8") as f:
-                    old_status = f.read().strip()
-            except Exception as e:
-                print(f"Advertencia: No se pudo leer el archivo de estatus anterior: {e}")
-
-        print(f"Estatus Anterior: '{old_status}'")
-        print(f"Estatus Actual: '{found_status}'")
-
-        # Siempre enviar notificación para mantenerte informado
-        print("Enviando reporte de estatus...")
+    print("=== Iniciando Checker de Focalización JCF ===")
+    
+    snap_path = "data/estados_municipios.json"
+    if not os.path.exists(snap_path):
+        print(f"[ERROR] Archivo {snap_path} no encontrado. Ejecuta primero descubrir_estados_municipios.py.")
+        sys.exit(1)
         
-        status_change_str = ""
-        if old_status != "Desconocido" and found_status != old_status:
-            status_change_str = f" (¡CAMBIÓ! Antes era '{old_status}')"
+    try:
+        with open(snap_path, "r", encoding="utf-8") as f:
+            snapshot_data = json.load(f)
+    except Exception as e:
+        print(f"[ERROR] No se pudo leer {snap_path}: {e}")
+        sys.exit(1)
+        
+    health = load_health()
+    error_occurred = False
+    error_reasons = []
+    
+    successfully_scraped = {}
+    onesignal_failures = []
+    
+    # Iniciar Playwright
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=HEADLESS)
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 800},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            
+            for state_code, state_info in sorted(snapshot_data.items()):
+                state_name = state_info["nombre"]
+                print(f"\nConsultando {state_name} ({state_code})...")
+                page = context.new_page()
+                
+                try:
+                    # 1. Navegar al portal
+                    response = page.goto(URL, wait_until="domcontentloaded", timeout=45000)
+                    
+                    # Verificar si hay bloqueo HTTP (403, 429, etc.)
+                    if response and response.status in [403, 429]:
+                        raise Exception(f"HTTP {response.status} - Bloqueo/Filtro del servidor JCF detectado.")
+                    
+                    # 2. Localizar y dar clic en el botón del Estado
+                    state_val = int(state_code)
+                    selector = f"button#edo_{state_val}, button#edo_{state_code}"
+                    
+                    page.wait_for_selector(selector, timeout=15000)
+                    state_btn = page.locator(selector).first
+                    state_btn.scroll_into_view_if_needed()
+                    state_btn.click()
+                    
+                    # 3. Esperar la tabla
+                    container_selector = "div.barridoTabla"
+                    page.wait_for_selector(container_selector, timeout=15000)
+                    
+                    # 4. Scroll en la tabla
+                    for scroll_step in range(6):
+                        page.evaluate("document.querySelector('div.barridoTabla').scrollTop = document.querySelector('div.barridoTabla').scrollHeight")
+                        page.wait_for_timeout(300)
+                    
+                    container = page.locator(container_selector)
+                    container_text = container.inner_text().strip()
+                    
+                    # 5. Parsear municipios
+                    municipios = parse_municipios(container_text)
+                    if not municipios:
+                        raise Exception("No se extrajeron municipios del contenedor.")
+                        
+                    successfully_scraped[state_code] = municipios
+                    print(f"-> {len(municipios)} municipios leídos.")
+                    
+                except Exception as e:
+                    print(f"Error procesando {state_name} ({state_code}): {e}")
+                    error_reasons.append(f"{state_name}: {e}")
+                finally:
+                    page.close()
+                    
+            browser.close()
+            
+    except Exception as p_err:
+        error_occurred = True
+        error_reasons.append(f"Excepción Playwright: {p_err}")
 
-        msg = f"Reporte JCF {MUNICIPALITY_NAME}: {found_status}{status_change_str}."
+    # --- VALIDACIÓN DE UMBRALES DE FALLA ---
+    total_states = len(snapshot_data)
+    failed_states_count = total_states - len(successfully_scraped)
+    
+    # 1. ¿Falla del 30% o más de los estados?
+    if total_states > 0 and (failed_states_count / total_states) >= 0.30:
+        error_occurred = True
+        error_reasons.append(f"Falla crítica: {failed_states_count}/{total_states} estados no pudieron ser consultados (>= 30%).")
+        
+    # 2. ¿Hubo algún bloqueo HTTP?
+    for reason in error_reasons:
+        if "HTTP 403" in reason or "HTTP 429" in reason:
+            error_occurred = True
+            
+    # --- COMPARACIÓN DE CAMBIOS Y ENVÍO DE NOTIFICACIONES ---
+    # Procesamos solo los estados que se leyeron con éxito
+    if not error_occurred or len(successfully_scraped) > 0:
+        for state_code, current_muns in successfully_scraped.items():
+            state_name = snapshot_data[state_code]["nombre"]
+            cached_muns = snapshot_data[state_code]["municipios"]
+            
+            for mun_name, current_status in current_muns.items():
+                old_status = cached_muns.get(mun_name)
+                
+                # Si existía estatus anterior y es diferente al actual, notificamos
+                if old_status and old_status != current_status:
+                    print(f"\n[ALERTA] ¡Cambio de estatus para {mun_name}, {state_name}! De '{old_status}' a '{current_status}'")
+                    # Llamada a OneSignal API
+                    success = send_onesignal_push(ONESIGNAL_APP_ID, ONESIGNAL_REST_API_KEY, state_name, mun_name, old_status, current_status)
+                    if not success:
+                        onesignal_failures.append(f"{mun_name} ({state_name})")
+                
+                # Actualizar el snapshot en memoria
+                cached_muns[mun_name] = current_status
 
-        if NTFY_TOPIC:
-            title_notification = f"Monitoreo JCF: {MUNICIPALITY_NAME}"
-            send_notification(NTFY_TOPIC, title_notification, msg)
-        else:
-            print("Advertencia: No se envió notificación push porque NTFY_TOPIC no está definida.")
+        # Escribir el nuevo estatus en disco si no hay una falla crítica total
+        if len(successfully_scraped) > (total_states * 0.5): # Guardar solo si logramos leer más del 50%
+            try:
+                with open(snap_path, "w", encoding="utf-8") as f:
+                    json.dump(snapshot_data, f, ensure_ascii=False, indent=2)
+                print(f"\nEstatus actualizado guardado en '{snap_path}'.")
+            except Exception as e:
+                print(f"Error al escribir {snap_path}: {e}")
 
-        # Guardar el estatus actual en el archivo
-        try:
-            with open(STATUS_FILE, "w", encoding="utf-8") as f:
-                f.write(found_status)
-            print(f"Estatus actual '{found_status}' guardado en '{STATUS_FILE}'.")
-        except Exception as e:
-            print(f"Error al escribir en el archivo de estatus: {e}")
+    # 3. ¿Errores al llamar la API de OneSignal?
+    if onesignal_failures:
+        error_occurred = True
+        error_reasons.append(f"Error al enviar notificaciones de OneSignal para: {', '.join(onesignal_failures)}")
 
-        browser.close()
+    # --- GESTIÓN DE ALERTAS DE SALUD OPERATIVAS (ntfy.sh) ---
+    if error_occurred or len(error_reasons) > 0:
+        # Hubo fallas
+        health["consecutive_failures"] += 1
+        failures_summary = " | ".join(error_reasons[:3]) # Resumen de los primeros 3 errores
+        
+        print(f"\n[SALUD] Falla operativa detectada. Consecutivas: {health['consecutive_failures']}")
+        
+        # Enviar alerta en la tercera falla consecutiva
+        if health["consecutive_failures"] >= 3 and not health["already_notified"]:
+            title = "CRÍTICO: Checker JCF reporta fallas consecutivas"
+            msg = (
+                f"El checker de focalización de JCF ha fallado {health['consecutive_failures']} veces seguidas.\n\n"
+                f"Errores detectados:\n" + "\n".join(error_reasons)
+            )
+            send_health_alert(NTFY_TOPIC, title, msg)
+            health["already_notified"] = True
+            
+        save_health(health)
+        # Detener la ejecución con código de error para notificar en la Actions UI
+        sys.exit(1)
+    else:
+        # Éxito completo
+        print("\n=== Corrida del Checker Finalizada de Manera Exitosa ===")
+        
+        # Si estaba notificado de falla, avisar recuperación
+        if health["already_notified"]:
+            title = "RECUPERACIÓN: Checker JCF Funcionando"
+            msg = "El sistema de monitoreo de JCF ha vuelto a completarse de forma normal y exitosa."
+            send_health_alert(NTFY_TOPIC, title, msg)
+            
+        health["consecutive_failures"] = 0
+        health["already_notified"] = False
+        health["last_failure_type"] = ""
+        save_health(health)
 
 if __name__ == "__main__":
-    try:
-        run()
-    except Exception as e:
-        print(f"\n[FATAL] Ocurrió un error al ejecutar el script: {e}")
-        sys.exit(1)
+    run()

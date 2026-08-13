@@ -1,13 +1,27 @@
-name: Check JCF Focalizacion
+name: Check JCF Focalizacion Revamp
 
 on:
   schedule:
-    # Corre cada 6 horas (a las 00:00, 06:00, 12:00, 18:00 UTC)
-    - cron: '0 */6 * * *'
-  workflow_dispatch: # Permite ejecución manual desde GitHub Actions UI
+    # --- CALENDARIO HISTÓRICO DE APERTURAS DE JCF (Patrón observado, no oficial) ---
+    
+    # Frecuente: Cada 10 minutos de los días 1 al 15 de meses pares (Feb, Abr, Jun, Ago, Oct, Dic)
+    - cron: '*/10 * 1-15 2,4,6,8,10,12 *'
+    
+    # Espaciado: Cada 30 minutos de los días 16 al 31 de meses pares (Feb, Abr, Jun, Ago, Oct, Dic)
+    - cron: '*/30 * 16-31 2,4,6,8,10,12 *'
+    
+    # Espaciado: Cada 30 minutos todos los días de meses impares (Ene, Mar, May, Jul, Sep, Nov)
+    - cron: '*/30 * * 1,3,5,7,9,11 *'
+    
+  workflow_dispatch: # Habilita ejecución manual desde la pestaña Actions
+
+# Bloqueo de concurrencia para evitar que ejecuciones lentas del sitio JCF se solapen
+concurrency:
+  group: jcf-checker
+  cancel-in-progress: false
 
 permissions:
-  contents: write # Necesario para poder hacer push de status.txt de vuelta al repo
+  contents: write # Requerido para actualizar el caché en data/ y site/
 
 jobs:
   check-status:
@@ -32,30 +46,28 @@ jobs:
       run: |
         playwright install chromium --with-deps
 
-    - name: Run watcher script
+    - name: Run checker script
       env:
+        ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+        ONESIGNAL_REST_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
         NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        STATE_ID: "23" # Quintana Roo
-        MUNICIPALITY_NAME: "Solidaridad"
         HEADLESS: "true"
       run: |
         python check_focalizacion.py
 
-    - name: Commit and push status change
+    - name: Commit and push status & health changes
+      # Se ejecuta incluso si el paso anterior falló (para guardar logs de fallas de salud)
+      if: always()
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         
-        # Agrega status.txt sólo si existe y ha cambiado
-        if [ -f status.txt ]; then
-          git add status.txt
-          # Revisa si hay cambios en el stage
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: update JCF status.txt [skip ci]"
-            git push
-          else
-            echo "Sin cambios en status.txt. Nada que subir."
-          fi
+        # Agregar archivos generados
+        git add data/estados_municipios.json data/salud_checker.json site/data.json 2>/dev/null || true
+        
+        if ! git diff --cached --quiet; then
+          git commit -m "chore: update JCF status & health logs [skip ci]"
+          git push
         else
-          echo "status.txt no fue creado. Saltando commit."
+          echo "Sin cambios detectados en el caché ni en logs. Nada que subir."
         fi

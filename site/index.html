@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alertas de Focalización JCF 🇲🇽</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- OneSignal SDK (v16) -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+        // Inicialización de OneSignal
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function(OneSignal) {
+            await OneSignal.init({
+                // ==========================================
+                // REEMPLAZAR ESTE APPLO ID CON EL TUYO REAL
+                // Nota: El App ID es una clave pública del navegador, no es secreta.
+                // ==========================================
+                appId: "TU_ONESIGNAL_APP_ID_AQUI", 
+                allowLocalhostAsSecureOrigin: true
+            });
+            
+            // Comprobar suscripción existente
+            checkExistingSubscription(OneSignal);
+        });
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151c2c;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-color: #1e293b;
+            --success-color: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 500px;
+            margin: auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        select {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: var(--text-color);
+            font-size: 1rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.85rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .alert-box {
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success-color);
+            color: #a7f3d0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1.5rem;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            display: none;
+        }
+
+        .info-section {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .info-section a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .info-section a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            margin-top: 3rem;
+            color: rgba(156, 163, 175, 0.4);
+            font-size: 0.8rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <main>
+        <header>
+            <h1>Notificaciones JCF 🇲🇽</h1>
+            <p>Elige tu municipio y recibe una alerta push en tu pantalla cuando abran vacantes de Jóvenes Construyendo el Futuro.</p>
+        </header>
+
+        <div class="card">
+            <div class="form-group">
+                <label for="estado">1. Elige tu Estado</label>
+                <select id="estado" onchange="onStateChange()">
+                    <option value="" disabled selected>Seleccionando catálogo...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="municipio">2. Elige tu Municipio</label>
+                <select id="municipio" disabled>
+                    <option value="" disabled selected>Selecciona un estado primero</option>
+                </select>
+            </div>
+
+            <button id="subscribe-btn" onclick="subscribeUser()" disabled>Activar Avisos Push</button>
+
+            <div id="success-msg" class="alert-box">
+                <strong>✓ ¡Listo!</strong> Estás suscrito y recibirás alertas cuando cambie la focalización de este municipio.
+            </div>
+        </div>
+
+        <div class="info-section">
+            <p>Este sistema funciona 100% de manera gratuita y no te pide nombre, CURP ni ningún dato personal. Las alertas llegan a tu navegador usando la tecnología libre de notificaciones web.</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>Servicio no oficial de monitoreo de focalización.</p>
+    </footer>
+
+    <script>
+        let catalog = {};
+
+        // Cargar el catálogo al iniciar
+        document.addEventListener("DOMContentLoaded", loadCatalog);
+
+        async function loadCatalog() {
+            try {
+                const response = await fetch("data.json");
+                if (!response.ok) throw new Error("No se pudo cargar data.json");
+                catalog = await response.json();
+                
+                const estadoSelect = document.getElementById("estado");
+                estadoSelect.innerHTML = '<option value="" disabled selected>-- Selecciona un Estado --</option>';
+                
+                Object.keys(catalog).sort().forEach(code => {
+                    const option = document.createElement("option");
+                    option.value = code;
+                    option.innerText = catalog[code].nombre;
+                    estadoSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error("Error al cargar el catálogo:", err);
+                const estadoSelect = document.getElementById("estado");
+                estadoSelect.innerHTML = '<option value="" disabled selected>⚠️ Error al cargar catálogo</option>';
+            }
+        }
+
+        function onStateChange() {
+            const estadoSelect = document.getElementById("estado");
+            const municipioSelect = document.getElementById("municipio");
+            const btn = document.getElementById("subscribe-btn");
+            
+            const selectedCode = estadoSelect.value;
+            municipioSelect.innerHTML = '<option value="" disabled selected>-- Selecciona un Municipio --</option>';
+            
+            if (selectedCode && catalog[selectedCode]) {
+                catalog[selectedCode].municipios.forEach(mun => {
+                    const option = document.createElement("option");
+                    option.value = mun;
+                    option.innerText = mun;
+                    municipioSelect.appendChild(option);
+                });
+                municipioSelect.disabled = false;
+                btn.disabled = false;
+            } else {
+                municipioSelect.disabled = true;
+                btn.disabled = true;
+            }
+        }
+
+        async function subscribeUser() {
+            const estadoSelect = document.getElementById("estado");
+            const municipioSelect = document.getElementById("municipio");
+            const btn = document.getElementById("subscribe-btn");
+            
+            if (!estadoSelect.value || !municipioSelect.value) {
+                alert("Por favor, selecciona un estado y un municipio.");
+                return;
+            }
+
+            const estadoName = estadoSelect.options[estadoSelect.selectedIndex].text;
+            const municipioName = municipioSelect.options[municipioSelect.selectedIndex].text;
+
+            btn.disabled = true;
+            btn.innerText = "Configurando...";
+
+            window.OneSignalDeferred.push(async function(OneSignal) {
+                try {
+                    // Solicitar permiso de notificaciones al navegador
+                    await OneSignal.Notifications.requestPermission();
+                    
+                    // Verificar si se concedió el permiso
+                    const hasPermission = OneSignal.Notifications.permission;
+                    
+                    if (hasPermission) {
+                        // Guardar las etiquetas (Tags) del usuario para focalizar la push
+                        await OneSignal.User.addTags({
+                            estado: estadoName,
+                            municipio: municipioName
+                        });
+                        
+                        // Guardar en almacenamiento local para recordar en UI
+                        localStorage.setItem("jcf_subscribed_estado", estadoName);
+                        localStorage.setItem("jcf_subscribed_municipio", municipioName);
+                        
+                        showSuccess(estadoName, municipioName);
+                    } else {
+                        alert("Permiso denegado. Para recibir avisos debes permitir las notificaciones de esta página.");
+                    }
+                } catch (err) {
+                    console.error("Error al registrar suscripción:", err);
+                    alert("Ocurrió un error al conectar con OneSignal. Revisa la consola.");
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = "Activar Avisos Push";
+                }
+            });
+        }
+
+        function showSuccess(estado, municipio) {
+            const msgBox = document.getElementById("success-msg");
+            msgBox.innerHTML = `<strong>✓ ¡Suscrito con éxito!</strong> Recibirás alertas push cuando cambie el estatus de <strong>${municipio}, ${estado}</strong>. Puedes cambiar de municipio seleccionando otro y presionando el botón nuevamente.`;
+            msgBox.style.display = "block";
+        }
+
+        function checkExistingSubscription(OneSignal) {
+            const savedEstado = localStorage.getItem("jcf_subscribed_estado");
+            const savedMunicipio = localStorage.getItem("jcf_subscribed_municipio");
+            
+            if (savedEstado && savedMunicipio) {
+                showSuccess(savedEstado, savedMunicipio);
+            }
+        }
+    </script>
+</body>
+</html>

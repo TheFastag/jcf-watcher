@@ -1,98 +1,88 @@
-# JCF Focalización Watcher 🇲🇽
+# JCF Focalización Watcher Revamp 🇲🇽 (32 Estados + OneSignal + Monitoreo de Salud)
 
-Este sistema monitorea automáticamente el estatus del municipio **Solidaridad, Quintana Roo** (o cualquier otro que configures) en el portal de focalización de **Jóvenes Construyendo el Futuro (JCF)**. 
+Este sistema monitorea de forma autónoma el estatus de focalización de los municipios en los **32 estados de México** en el portal oficial de **Jóvenes Construyendo el Futuro (JCF)**. 
 
-Cuando el estatus cambia (por ejemplo, de **"Municipio Cerrado"** a **"Municipio Abierto"**), el sistema te envía inmediatamente una **notificación push gratuita** a tu celular utilizando el servicio gratuito y libre de **ntfy.sh**.
+Cualquier persona puede ingresar a tu página web pública, seleccionar su estado/municipio de forma sencilla mediante listas desplegables, y suscribirse a notificaciones **Web Push directas** (sin instalar aplicaciones en su celular) gracias a la integración con **OneSignal**.
 
-> [!IMPORTANT]
-> **Este script solo te avisa.** No realiza de forma automatizada el llenado o envío de tu solicitud. Esto respeta las reglas del portal y te garantiza que tú mismo ingreses tus datos manualmente una vez notificado. Todo el flujo es 100% gratuito y no requiere tarjetas ni cuentas de pago.
-
----
-
-## 📱 Configuración de Notificaciones (ntfy.sh)
-
-1. Descarga la aplicación **ntfy** en tu teléfono:
-   - [Google Play Store (Android)](https://play-store-link) o F-Droid.
-   - [App Store (iOS)](https://apps.apple.com/app/ntfy/id1625396389).
-   - *O bien puedes usar la versión web: abre [https://ntfy.sh/](https://ntfy.sh/) en tu navegador de preferencia.*
-2. En la app, presiona el botón **"+"** o **"Subscribe to topic"**.
-3. Elige un nombre de tema único y aleatorio (por ejemplo: `jcf-alerta-solidaridad-789`). **No uses espacios ni caracteres especiales**.
-4. ¡Listo! Ya estás suscrito al canal. Cualquier mensaje que se envíe a `https://ntfy.sh/tu-tema-secreto` llegará al instante como notificación push.
+Adicionalmente, el sistema incluye una **alerta operativa de salud personal** vía **ntfy.sh** para notificarte exclusivamente si el script de monitoreo se rompe, si el sitio de JCF cambia de estructura, o si somos bloqueados.
 
 ---
 
-## 🛠️ Instalación y Uso Local
-
-Sigue estos pasos para validar que el script funciona y ver cómo interactúa con el sitio web de manera visual.
-
-### 1. Requisitos Previos
-Asegúrate de tener instalado Python 3.8 o superior en tu equipo.
-
-### 2. Instalar dependencias
-Abre una terminal en esta carpeta y ejecuta:
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Instalar navegadores de Playwright
-Playwright requiere descargar su versión de Chromium para funcionar:
-```bash
-playwright install chromium
-```
-
-### 4. Probar en modo visible (Visual / Headless = false)
-Por defecto, el script corre en modo oculto (headless). Para probarlo de forma visible y verificar cómo da clic y busca la información:
-
-**En Windows (PowerShell):**
-```powershell
-$env:HEADLESS="false"
-$env:NTFY_TOPIC="tu-tema-creado" # Reemplaza con tu tema de ntfy
-python check_focalizacion.py
-```
-
-**En Linux / macOS:**
-```bash
-HEADLESS=false NTFY_TOPIC="tu-tema-creado" python check_focalizacion.py
-```
-
-Al correrlo, verás cómo se abre el navegador Chrome, entra a la página, hace clic en el estado de Quintana Roo, ingresa "Solidaridad" en la búsqueda, extrae el estado y crea un archivo llamado `status.txt` con el valor actual. Si es la primera vez que corre, te llegará la notificación push de inicialización.
+## 📁 Estructura del Repositorio Único
+Tanto el script de rastreo (checker) como la página web pública conviven en este único repositorio para facilitar su mantenimiento y permitir la sincronización de archivos:
+- `site/index.html` — La página pública de suscripción para tus usuarios.
+- `site/data.json` — Catálogo estático de nombres de estados y municipios.
+- `data/estados_municipios.json` — Base de datos del estatus de focalización actual.
+- `data/salud_checker.json` — Archivo de control para evitar saturación de alarmas de salud.
+- `check_focalizacion.py` — El checker principal de 32 estados.
+- `descubrir_estados_municipios.py` — Script inicial para poblar el catálogo de municipios.
+- `netlify.toml` — Configuración que evita que consumas créditos de Netlify.
 
 ---
 
-## 🚀 Despliegue Automático Gratis (GitHub Actions)
+## 🚀 Despliegue en la Nube (Auto-Deploy Gratis)
 
-Para que el script corra de manera continua cada 6 horas y guarde el estatus sin necesidad de tener tu computadora encendida:
+### 1. Alojar la página web en Netlify
+1. Crea una cuenta gratuita en [Netlify](https://netlify.com) conectando tu cuenta de GitHub.
+2. Añade un nuevo sitio seleccionando **Import from Git** y elige tu repositorio `jcf-watcher`.
+3. Netlify detectará automáticamente el archivo [netlify.toml](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/netlify.toml). Este archivo contiene una regla de ignorado inteligente:
+   ```toml
+   [build]
+     publish = "site"
+     ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- site/"
+   ```
+   > [!IMPORTANT]
+   > Esta regla es crucial. Le dice a Netlify que **no reconstruya ni despliegue el sitio** si los cambios ocurren fuera de la carpeta `site/`. Como el checker hace commits continuos en la carpeta `data/` para actualizar el estatus de los municipios, esto previene que gastes tus minutos de despliegue de Netlify de forma innecesaria. No borres ni edites este archivo.
 
-1. **Crea un repositorio en GitHub:** Crea un nuevo repositorio (puede ser privado o público) y sube todos los archivos de este proyecto (`check_focalizacion.py`, `.github/`, `requirements.txt`, etc.).
-2. **Configura el Secret de Notificación:**
-   - En tu repositorio de GitHub, ve a **Settings** > **Secrets and variables** > **Actions**.
-   - Haz clic en **New repository secret**.
-   - Nombre: `NTFY_TOPIC`
-   - Valor: El nombre de tu tema único creado en el paso 1 (por ejemplo: `jcf-alerta-solidaridad-789`).
-3. **Otorga permisos de escritura al Workflow:**
-   - Como el script necesita guardar el archivo `status.txt` dentro de tu repositorio entre corridas para recordar el estatus anterior, GitHub Actions requiere permisos de escritura.
-   - Ve a **Settings** > **Actions** > **General**.
-   - Ve al final de la página hasta la sección **Workflow permissions**.
-   - Selecciona **Read and write permissions** y haz clic en **Save**.
-4. **Prueba el Workflow manualmente:**
-   - Ve a la pestaña **Actions** en tu repositorio.
-   - Selecciona el flujo **Check JCF Focalizacion** en la barra lateral izquierda.
-   - Haz clic en el botón desplegable **Run workflow** y luego en **Run workflow**.
-   - Espera unos minutos a que finalice. Deberías recibir tu primera notificación y ver aparecer el archivo `status.txt` en la raíz de tu repositorio en GitHub.
+### 2. Configurar OneSignal (Web Push para Usuarios)
+1. Crea una cuenta gratuita en [OneSignal](https://onesignal.com).
+2. Crea una nueva aplicación de tipo **Web Push**.
+3. En la configuración de Web Push, ingresa la URL que te asignó Netlify para tu sitio web.
+4. **App ID Público:** Abre el archivo [site/index.html](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/site/index.html) y reemplaza la cadena `TU_ONESIGNAL_APP_ID_AQUI` con tu App ID real de OneSignal. *(Nota: Este ID es público y está diseñado para estar en el navegador del usuario final).*
+5. **REST API Key Secreta:** Obtén tu clave API en Settings > API Keys de OneSignal. Esta clave es **secreta** y nunca debe quedar escrita en tu código.
+
+### 3. Configurar GitHub Secrets y Permisos
+Ve a tu repositorio en GitHub y configura los siguientes valores:
+1. **GitHub Secrets:** En Settings > Secrets and variables > Actions, haz clic en **New repository secret** y agrega:
+   - `ONESIGNAL_APP_ID` - Tu App ID público de OneSignal.
+   - `ONESIGNAL_REST_API_KEY` - Tu API Key de OneSignal (empieza con `Basic...` o tu clave directa).
+   - `NTFY_TOPIC` - Tu tema de notificaciones personales de ntfy.sh (para alertas de fallas).
+2. **Permisos de Escritura:** En Settings > Actions > General, navega hasta el final y en **Workflow permissions** selecciona **Read and write permissions** y guarda.
 
 ---
 
-## 🔍 Depuración y Resolución de Fallas (Selectores)
+## 🛠️ Lógica de Alertas de Salud (ntfy.sh)
 
-Dado que las páginas gubernamentales cambian su diseño sin previo aviso, el script está preparado para ser fácil de depurar:
+Para evitar que tu celular se sature con mensajes innecesarios, el script implementa una lógica anti-saturación:
+1. **Detección de Error:** Si la consulta de JCF falla (bloqueo HTTP 403/429, error en el script, fallo del API de OneSignal, o si no se pueden leer el 30% o más de los estados), se suma 1 al contador de fallas consecutivas en `data/salud_checker.json`.
+2. **Umbral de Alerta:** Solo te llegará un mensaje push a tu tema de ntfy (ej. `mi-alerta-jcf-solidaridad`) si el checker falla **3 veces consecutivas**. *(Puedes ajustar este valor editando `check_focalizacion.py` en la línea 324).*
+3. **Silenciamiento:** Una vez enviado el mensaje de alerta, no se enviarán más notificaciones en las siguientes ejecuciones fallidas.
+4. **Recuperación:** Cuando la página de JCF responda con éxito nuevamente, se te enviará un **único mensaje de recuperación** y el contador se reseteará a cero.
 
-1. **Mensajes Detallados:** El script imprime por consola el texto íntegro capturado del contenedor de la tabla (`div.barridoTabla`) en cada corrida.
-2. **Capturas de Pantalla en Errores:** Si el script no logra encontrar el botón del estado o el campo de búsqueda, guardará automáticamente archivos de imagen en la raíz del proyecto:
-   - `debug_state_error.png`: Si no encuentra el botón de Quintana Roo.
-   - `debug_search_error.png`: Si no encuentra el buscador.
-   - `debug_status_not_found.png`: Si encontró el buscador pero no pudo interpretar el estatus de la tabla.
-3. **Ajuste de Selectores en el código:**
-   - Abre [check_focalizacion.py](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/check_focalizacion.py).
-   - Para cambiar el estado, ajusta la variable `STATE_ID` o la variable de entorno correspondiente.
-   - Si cambia la clase del contenedor de la tabla, modifica `container_selector = "div.barridoTabla"` en la línea 110.
-   - Si cambia el buscador de texto, modifica `input_selector = "input#myInput"` en la línea 79.
+---
+
+## 📅 Calendario de Ejecución y Concurrencia
+El workflow [.github/workflows/check.yml](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/.github/workflows/check.yml) corre con frecuencia variable:
+- **Periodo Frecuente (Cada 10 minutos):** Del día 1 al 15 de meses pares (Feb, Abr, Jun, Ago, Oct, Dic), que es la ventana histórica donde suelen ocurrir las aperturas.
+- **Periodo Espaciado (Cada 30 minutos):** El resto del año.
+*(Nota: Este calendario es una observación empírica de la comunidad, no una programación oficial de la STPS).*
+
+Para evitar que los trabajos de 2.5 minutos se empalmen si el portal de JCF tarda demasiado en responder, el workflow tiene activa la concurrencia:
+```yaml
+concurrency:
+  group: jcf-checker
+  cancel-in-progress: false
+```
+
+---
+
+## 🔐 Seguridad
+Dado que tu repositorio debe ser público para obtener minutos gratuitos ilimitados de GitHub Actions:
+- **Cero claves en el código:** `ONESIGNAL_REST_API_KEY` y `NTFY_TOPIC` se leen exclusivamente a través de variables de entorno y se configuran de forma segura en los Secrets de tu repositorio en GitHub.
+- **Exclusiones:** El archivo [.gitignore](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/.gitignore) se encuentra configurado para excluir archivos locales `.env` o capturas de depuración.
+- **Secret Scanning:** Te recomendamos activar la opción gratuita en tu repositorio: **Settings** > **Security** > **Secret scanning** > clic en **Enable**. Esto escaneará tus commits automáticamente y te alertará si subes un token por accidente.
+
+---
+
+## 🔧 Mantenimiento
+Las páginas gubernamentales cambian de diseño ocasionalmente. Si el checker comienza a fallar de forma continua, el sistema te avisará a ntfy. El único mantenimiento requerido es revisar la pestaña **Actions** de tu repositorio para examinar los logs de error y actualizar los selectores de búsqueda en `check_focalizacion.py` si la estructura del sitio oficial cambia.
