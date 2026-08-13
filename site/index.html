@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alertas de Focalización JCF 🇲🇽</title>
+    <title>Notificador Personal (PoC)</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -198,8 +198,8 @@
 
     <main>
         <header>
-            <h1>Notificaciones JCF 🇲🇽</h1>
-            <p>Elige tu municipio y recibe una alerta push en tu pantalla cuando abran vacantes de Jóvenes Construyendo el Futuro.</p>
+            <h1>Notificador Personal (PoC) 📢</h1>
+            <p>Este es un sistema personal de notificaciones web push que diseñé para recibir alertas sobre cambios en sitios web de mi interés. Actualmente se encuentra configurado como prueba de concepto (PoC) para el portal de JCF y es compartido sin fines de lucro para quien desee usarlo como referencia.</p>
         </header>
 
         <div class="card">
@@ -362,7 +362,7 @@
 
         function showSuccess(estado, municipio) {
             const msgBox = document.getElementById("success-msg");
-            msgBox.innerHTML = `<strong>✓ ¡Suscrito con éxito!</strong> Recibirás alertas push cuando cambie el estatus de <strong>${municipio}, ${estado}</strong>. Puedes cambiar de municipio seleccionando otro y presionando el botón nuevamente.`;
+            msgBox.innerHTML = `<strong>✓ ¡Configurado con éxito!</strong> Recibirás alertas push cuando cambie el estatus de <strong>${municipio}, ${estado}</strong>.`;
             msgBox.style.display = "block";
         }
 

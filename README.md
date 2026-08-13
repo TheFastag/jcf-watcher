@@ -1,46 +1,45 @@
-# Alertas de Focalización JCF 🇲🇽
+# Personal Web Monitor (PoC - JCF) 📢
 
-Este es un servicio gratuito y anónimo de notificaciones web push en tiempo real para recibir alertas en cuanto se abran las vacantes del programa **Jóvenes Construyendo el Futuro (JCF)** en tu municipio.
+Este proyecto es un sistema personal de notificaciones web push en tiempo real que desarrollé para recibir alertas sobre cambios o actualizaciones en portales de mi interés. 
 
-El sistema monitorea en segundo plano el portal oficial de focalización de la STPS y te avisa al instante para que seas de los primeros en solicitar tu registro cuando la plataforma abra.
-
----
-
-## ✨ Características
-
-- 📱 **Notificaciones en tiempo real:** Recibe avisos directo en tu celular, tablet o computadora (Chrome, Edge, Firefox, Brave, etc.).
-- 🔒 **100% Anónimo:** No requerimos tu nombre, correo, CURP, teléfono ni ningún dato personal. Tu privacidad está completamente protegida.
-- ⚡ **Sin registros:** No necesitas crear una cuenta, configurar contraseñas ni instalar aplicaciones externas en tu teléfono.
-- 💸 **Totalmente gratis:** Servicio sin costo, libre de publicidad molesta o tarifas de suscripción.
+Como caso de estudio y prueba de concepto (PoC), el código se encuentra configurado para monitorear el estatus de focalización en el portal de Jóvenes Construyendo el Futuro (JCF) a nivel municipal en los 32 estados de México. Comparto este repositorio de manera abierta y sin ánimo de lucro como referencia de desarrollo o por si el concepto resulta útil para fines de prueba.
 
 ---
 
-## 🚀 Cómo activar tus avisos
+## 💡 Cómo funciona
 
-1. **Visita la página web oficial de este proyecto:**
-   *(Ingresa a la URL asignada a tu sitio web, por ejemplo: `https://tu-sitio.netlify.app`)*
+1. Un bot automatizado en segundo plano consulta de forma periódica el portal de interés.
+2. Compara el estado actual de los municipios contra un historial local.
+3. Si el estatus de un municipio cambia (por ejemplo, de `"cerrado"` a `"abierto"`), el bot realiza una llamada a la API de OneSignal.
+4. OneSignal distribuye un aviso Web Push al instante a todos los navegadores que hayan elegido suscribirse a ese estado y municipio.
+
+---
+
+## 🛠️ Cómo utilizar la prueba de concepto
+
+Si deseas probar el funcionamiento del notificador para tu localidad:
+
+1. **Visita la página web de prueba:**
+   *(Ingresa a la URL pública donde se haya alojado la carpeta `site/`)*
 2. **Selecciona tu localidad:**
-   - En el paso 1, elige tu **Estado** de la lista.
-   - En el paso 2, selecciona tu **Municipio**.
-3. **Activa las notificaciones:**
-   - Haz clic en el botón **"Activar Avisos Push"**.
-   - Cuando tu navegador te muestre una pequeña ventana flotante preguntando si deseas permitir las notificaciones de esta página, haz clic en **"Permitir"** (o *Allow*).
-4. **¡Listo!** Ya estás suscrito. Puedes cerrar la página y seguir usando tu teléfono con normalidad; la alerta te sonará en pantalla en cuanto el estatus de tu municipio pase a estar **Abierto**.
-
-> [!TIP]
-> Si en el futuro deseas recibir alertas de otro municipio diferente, simplemente vuelve a ingresar a la página, selecciona tu nuevo estado y municipio, y presiona el botón nuevamente para actualizar tu suscripción.
+   - Selecciona tu **Estado** de la lista desplegable.
+   - Selecciona tu **Municipio** de la segunda lista desplegable.
+3. **Activa las alertas:**
+   - Haz clic en **"Activar Avisos Push"**.
+   - Concede el permiso para recibir notificaciones cuando tu navegador de internet te lo solicite.
+4. **¡Listo!** El navegador quedará registrado para recibir las alertas push automáticas de ese municipio en específico en caso de que ocurran cambios.
 
 ---
 
-## 🔍 ¿Cómo funciona el sistema?
+## ⚙️ Características técnicas
 
-1. Un bot automatizado revisa de forma periódica el mapa de focalización de la plataforma oficial de JCF.
-2. Compara el estatus de los 32 estados de México contra el último registro guardado.
-3. Si el estatus de tu municipio cambia (por ejemplo, pasa de **"Municipio Cerrado"** a **"Municipio Abierto"**), el sistema envía instantáneamente un aviso a través del servicio de OneSignal que se distribuye a todos los navegadores suscritos a ese municipio.
+- **100% Anónimo:** No requiere CURP, correos, nombres ni ningún dato personal del usuario. Solo se almacena una etiqueta de suscripción anónima en los servidores de mensajería de OneSignal.
+- **Sin cuentas:** No necesitas registrarte ni iniciar sesión.
+- **Multiplataforma:** Las alertas llegan directo a tu pantalla tanto en móviles como en computadoras de escritorio a través de navegadores compatibles (Chrome, Firefox, Safari, Edge, Brave, etc.).
 
 ---
 
 ## 🚫 Exención de Responsabilidad
-Este es un proyecto de código abierto no oficial y de carácter únicamente informativo. No estamos afiliados, asociados, autorizados ni respaldados por la Secretaría del Trabajo y Previsión Social (STPS) ni por el programa oficial gubernamental de Jóvenes Construyendo el Futuro. 
+Este es un proyecto personal, de código abierto y con fines exclusivamente didácticos y de referencia. No tiene relación alguna, ni está avalado, afiliado o patrocinado por la Secretaría del Trabajo y Previsión Social (STPS), ni por el programa gubernamental de Jóvenes Construyendo el Futuro. 
 
-El sistema **nunca** realiza el trámite ni el llenado de solicitudes por ti; su único propósito es avisarte para que tú ingreses manualmente al portal oficial a realizar tu solicitud con tus datos reales.
+Este software **no realiza trámites, registros ni llenado de formularios** de forma automática; su única función es servir como canal de avisos informativos para que el usuario sea quien realice cualquier trámite de manera manual y directa en los canales oficiales.
