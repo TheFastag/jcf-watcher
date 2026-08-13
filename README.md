@@ -1,88 +1,46 @@
-# JCF Focalización Watcher Revamp 🇲🇽 (32 Estados + OneSignal + Monitoreo de Salud)
+# Alertas de Focalización JCF 🇲🇽
 
-Este sistema monitorea de forma autónoma el estatus de focalización de los municipios en los **32 estados de México** en el portal oficial de **Jóvenes Construyendo el Futuro (JCF)**. 
+Este es un servicio gratuito y anónimo de notificaciones web push en tiempo real para recibir alertas en cuanto se abran las vacantes del programa **Jóvenes Construyendo el Futuro (JCF)** en tu municipio.
 
-Cualquier persona puede ingresar a tu página web pública, seleccionar su estado/municipio de forma sencilla mediante listas desplegables, y suscribirse a notificaciones **Web Push directas** (sin instalar aplicaciones en su celular) gracias a la integración con **OneSignal**.
-
-Adicionalmente, el sistema incluye una **alerta operativa de salud personal** vía **ntfy.sh** para notificarte exclusivamente si el script de monitoreo se rompe, si el sitio de JCF cambia de estructura, o si somos bloqueados.
+El sistema monitorea en segundo plano el portal oficial de focalización de la STPS y te avisa al instante para que seas de los primeros en solicitar tu registro cuando la plataforma abra.
 
 ---
 
-## 📁 Estructura del Repositorio Único
-Tanto el script de rastreo (checker) como la página web pública conviven en este único repositorio para facilitar su mantenimiento y permitir la sincronización de archivos:
-- `site/index.html` — La página pública de suscripción para tus usuarios.
-- `site/data.json` — Catálogo estático de nombres de estados y municipios.
-- `data/estados_municipios.json` — Base de datos del estatus de focalización actual.
-- `data/salud_checker.json` — Archivo de control para evitar saturación de alarmas de salud.
-- `check_focalizacion.py` — El checker principal de 32 estados.
-- `descubrir_estados_municipios.py` — Script inicial para poblar el catálogo de municipios.
-- `netlify.toml` — Configuración que evita que consumas créditos de Netlify.
+## ✨ Características
+
+- 📱 **Notificaciones en tiempo real:** Recibe avisos directo en tu celular, tablet o computadora (Chrome, Edge, Firefox, Brave, etc.).
+- 🔒 **100% Anónimo:** No requerimos tu nombre, correo, CURP, teléfono ni ningún dato personal. Tu privacidad está completamente protegida.
+- ⚡ **Sin registros:** No necesitas crear una cuenta, configurar contraseñas ni instalar aplicaciones externas en tu teléfono.
+- 💸 **Totalmente gratis:** Servicio sin costo, libre de publicidad molesta o tarifas de suscripción.
 
 ---
 
-## 🚀 Despliegue en la Nube (Auto-Deploy Gratis)
+## 🚀 Cómo activar tus avisos
 
-### 1. Alojar la página web en Netlify
-1. Crea una cuenta gratuita en [Netlify](https://netlify.com) conectando tu cuenta de GitHub.
-2. Añade un nuevo sitio seleccionando **Import from Git** y elige tu repositorio `jcf-watcher`.
-3. Netlify detectará automáticamente el archivo [netlify.toml](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/netlify.toml). Este archivo contiene una regla de ignorado inteligente:
-   ```toml
-   [build]
-     publish = "site"
-     ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- site/"
-   ```
-   > [!IMPORTANT]
-   > Esta regla es crucial. Le dice a Netlify que **no reconstruya ni despliegue el sitio** si los cambios ocurren fuera de la carpeta `site/`. Como el checker hace commits continuos en la carpeta `data/` para actualizar el estatus de los municipios, esto previene que gastes tus minutos de despliegue de Netlify de forma innecesaria. No borres ni edites este archivo.
+1. **Visita la página web oficial de este proyecto:**
+   *(Ingresa a la URL asignada a tu sitio web, por ejemplo: `https://tu-sitio.netlify.app`)*
+2. **Selecciona tu localidad:**
+   - En el paso 1, elige tu **Estado** de la lista.
+   - En el paso 2, selecciona tu **Municipio**.
+3. **Activa las notificaciones:**
+   - Haz clic en el botón **"Activar Avisos Push"**.
+   - Cuando tu navegador te muestre una pequeña ventana flotante preguntando si deseas permitir las notificaciones de esta página, haz clic en **"Permitir"** (o *Allow*).
+4. **¡Listo!** Ya estás suscrito. Puedes cerrar la página y seguir usando tu teléfono con normalidad; la alerta te sonará en pantalla en cuanto el estatus de tu municipio pase a estar **Abierto**.
 
-### 2. Configurar OneSignal (Web Push para Usuarios)
-1. Crea una cuenta gratuita en [OneSignal](https://onesignal.com).
-2. Crea una nueva aplicación de tipo **Web Push**.
-3. En la configuración de Web Push, ingresa la URL que te asignó Netlify para tu sitio web.
-4. **App ID Público:** Abre el archivo [site/index.html](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/site/index.html) y reemplaza la cadena `TU_ONESIGNAL_APP_ID_AQUI` con tu App ID real de OneSignal. *(Nota: Este ID es público y está diseñado para estar en el navegador del usuario final).*
-5. **REST API Key Secreta:** Obtén tu clave API en Settings > API Keys de OneSignal. Esta clave es **secreta** y nunca debe quedar escrita en tu código.
-
-### 3. Configurar GitHub Secrets y Permisos
-Ve a tu repositorio en GitHub y configura los siguientes valores:
-1. **GitHub Secrets:** En Settings > Secrets and variables > Actions, haz clic en **New repository secret** y agrega:
-   - `ONESIGNAL_APP_ID` - Tu App ID público de OneSignal.
-   - `ONESIGNAL_REST_API_KEY` - Tu API Key de OneSignal (empieza con `Basic...` o tu clave directa).
-   - `NTFY_TOPIC` - Tu tema de notificaciones personales de ntfy.sh (para alertas de fallas).
-2. **Permisos de Escritura:** En Settings > Actions > General, navega hasta el final y en **Workflow permissions** selecciona **Read and write permissions** y guarda.
+> [!TIP]
+> Si en el futuro deseas recibir alertas de otro municipio diferente, simplemente vuelve a ingresar a la página, selecciona tu nuevo estado y municipio, y presiona el botón nuevamente para actualizar tu suscripción.
 
 ---
 
-## 🛠️ Lógica de Alertas de Salud (ntfy.sh)
+## 🔍 ¿Cómo funciona el sistema?
 
-Para evitar que tu celular se sature con mensajes innecesarios, el script implementa una lógica anti-saturación:
-1. **Detección de Error:** Si la consulta de JCF falla (bloqueo HTTP 403/429, error en el script, fallo del API de OneSignal, o si no se pueden leer el 30% o más de los estados), se suma 1 al contador de fallas consecutivas en `data/salud_checker.json`.
-2. **Umbral de Alerta:** Solo te llegará un mensaje push a tu tema de ntfy (ej. `mi-alerta-jcf-solidaridad`) si el checker falla **3 veces consecutivas**. *(Puedes ajustar este valor editando `check_focalizacion.py` en la línea 324).*
-3. **Silenciamiento:** Una vez enviado el mensaje de alerta, no se enviarán más notificaciones en las siguientes ejecuciones fallidas.
-4. **Recuperación:** Cuando la página de JCF responda con éxito nuevamente, se te enviará un **único mensaje de recuperación** y el contador se reseteará a cero.
+1. Un bot automatizado revisa de forma periódica el mapa de focalización de la plataforma oficial de JCF.
+2. Compara el estatus de los 32 estados de México contra el último registro guardado.
+3. Si el estatus de tu municipio cambia (por ejemplo, pasa de **"Municipio Cerrado"** a **"Municipio Abierto"**), el sistema envía instantáneamente un aviso a través del servicio de OneSignal que se distribuye a todos los navegadores suscritos a ese municipio.
 
 ---
 
-## 📅 Calendario de Ejecución y Concurrencia
-El workflow [.github/workflows/check.yml](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/.github/workflows/check.yml) corre con frecuencia variable:
-- **Periodo Frecuente (Cada 10 minutos):** Del día 1 al 15 de meses pares (Feb, Abr, Jun, Ago, Oct, Dic), que es la ventana histórica donde suelen ocurrir las aperturas.
-- **Periodo Espaciado (Cada 30 minutos):** El resto del año.
-*(Nota: Este calendario es una observación empírica de la comunidad, no una programación oficial de la STPS).*
+## 🚫 Exención de Responsabilidad
+Este es un proyecto de código abierto no oficial y de carácter únicamente informativo. No estamos afiliados, asociados, autorizados ni respaldados por la Secretaría del Trabajo y Previsión Social (STPS) ni por el programa oficial gubernamental de Jóvenes Construyendo el Futuro. 
 
-Para evitar que los trabajos de 2.5 minutos se empalmen si el portal de JCF tarda demasiado en responder, el workflow tiene activa la concurrencia:
-```yaml
-concurrency:
-  group: jcf-checker
-  cancel-in-progress: false
-```
-
----
-
-## 🔐 Seguridad
-Dado que tu repositorio debe ser público para obtener minutos gratuitos ilimitados de GitHub Actions:
-- **Cero claves en el código:** `ONESIGNAL_REST_API_KEY` y `NTFY_TOPIC` se leen exclusivamente a través de variables de entorno y se configuran de forma segura en los Secrets de tu repositorio en GitHub.
-- **Exclusiones:** El archivo [.gitignore](file:///c:/Users/sams_/Downloads/JCF_SCRIPT/.gitignore) se encuentra configurado para excluir archivos locales `.env` o capturas de depuración.
-- **Secret Scanning:** Te recomendamos activar la opción gratuita en tu repositorio: **Settings** > **Security** > **Secret scanning** > clic en **Enable**. Esto escaneará tus commits automáticamente y te alertará si subes un token por accidente.
-
----
-
-## 🔧 Mantenimiento
-Las páginas gubernamentales cambian de diseño ocasionalmente. Si el checker comienza a fallar de forma continua, el sistema te avisará a ntfy. El único mantenimiento requerido es revisar la pestaña **Actions** de tu repositorio para examinar los logs de error y actualizar los selectores de búsqueda en `check_focalizacion.py` si la estructura del sitio oficial cambia.
+El sistema **nunca** realiza el trámite ni el llenado de solicitudes por ti; su único propósito es avisarte para que tú ingreses manualmente al portal oficial a realizar tu solicitud con tus datos reales.
